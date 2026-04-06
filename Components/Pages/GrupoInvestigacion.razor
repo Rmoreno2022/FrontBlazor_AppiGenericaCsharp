@@ -1,0 +1,402 @@
+@page "/grupoinvestigacion"
+@rendermode InteractiveServer
+@inject FrontBlazor_AppiGenericaCsharp.Services.ApiService Api
+@inject IJSRuntime JS
+
+<PageTitle>Grupo de Investigacion</PageTitle>
+
+<div class="container mt-4">
+    <h3>Grupo de Investigacion</h3>
+
+    @* ───────── ALERTA DE EXITO O ERROR ───────── *@
+    @if (!string.IsNullOrEmpty(mensaje))
+    {
+        <div class="alert @(exito ? "alert-success" : "alert-danger") alert-dismissible fade show">
+            @mensaje
+            <button type="button" class="btn-close" @onclick="() => mensaje = string.Empty"></button>
+        </div>
+    }
+
+    @* ───────── BOTON PARA MOSTRAR FORMULARIO DE CREAR ───────── *@
+    @if (!mostrarFormulario)
+    {
+        <button class="btn btn-primary mb-3" @onclick="NuevoRegistro">Nuevo Grupo de Investigacion</button>
+    }
+
+    @* ───────── FORMULARIO (CREAR / EDITAR) ───────── *@
+    @if (mostrarFormulario)
+    {
+        <div class="card mb-3">
+            <div class="card-header">
+                @(editando ? "Editar Grupo de Investigacion" : "Nuevo Grupo de Investigacion")
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Id</label>
+                        <input class="form-control" @bind="campoCodigo" disabled="@editando" />
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Nombre</label>
+                        <input class="form-control" @bind="campoNombre" />
+                    </div>
+
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Url</label>
+                        <input class="form-control" @bind="campoUrl" />
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Categoria</label>
+                        <input class="form-control" @bind="campoCategoria" />
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Convocatoria</label>
+                        <input class="form-control" @bind="campoConvocatoria" />
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Fecha Fundacion</label>
+                        <input type="date" class="form-control" @bind="campoFechaFundacion" />
+                    </div>
+
+                    @* ───────── LISTA DESPLEGABLE DE UNIVERSIDADES ───────── *@
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Universidad</label>
+                        @if (cargandoUniversidades)
+                        {
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                    <span class="visually-hidden">Cargando universidades...</span>
+                                </div>
+                                <span class="text-muted small">Cargando universidades...</span>
+                            </div>
+                        }
+                        else
+                        {
+                            <select class="form-select" @bind="campoUniversidad">
+                                <option value="0">-- Seleccione una universidad --</option>
+                                @foreach (var u in universidades)
+                                {
+                                    <option value="@u["id"]?.ToString()">
+                                        @u["nombre"]?.ToString()
+                                    </option>
+                                }
+                            </select>
+                            @if (!universidades.Any())
+                            {
+                                <small class="text-danger">No se pudieron cargar las universidades.</small>
+                            }
+                        }
+                    </div>
+
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Interno</label>
+                        <div class="form-check mt-2">
+                            <input type="checkbox" class="form-check-input" id="chkInterno" @bind="campoInterno" />
+                            <label class="form-check-label" for="chkInterno">Es interno</label>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Ambito</label>
+                        <input class="form-control" @bind="campoAmbito" />
+                    </div>
+                </div>
+                <button class="btn btn-success me-2" @onclick="GuardarRegistro">Guardar</button>
+                <button class="btn btn-secondary" @onclick="Cancelar">Cancelar</button>
+            </div>
+        </div>
+    }
+
+    @* ───────── SPINNER DE CARGA ───────── *@
+    @if (cargando)
+    {
+        <div class="d-flex justify-content-center my-4">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+        </div>
+    }
+
+    @* ───────── TABLA DE REGISTROS ───────── *@
+    @if (!cargando && registros.Any())
+    {
+        <table class="table table-striped table-hover">
+            <thead class="table-dark">
+                <tr>
+                    <th>Id</th>
+                    <th>Nombre</th>
+                    <th>Url</th>
+                    <th>Categoria</th>
+                    <th>Convocatoria</th>
+                    <th>Fecha Fundacion</th>
+                    <th>Universidad</th>
+                    <th>Interno</th>
+                    <th>Ambito</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var reg in registros)
+                {
+                    <tr>
+                        <td>@reg["id"]?.ToString()</td>
+                        <td>@reg["nombre"]?.ToString()</td>
+                        <td>@reg["url_gruplac"]</td>
+                        <td>@reg["categoria"]?.ToString()</td>
+                        <td>@reg["convocatoria"]?.ToString()</td>
+                        <td>@reg["fecha_fundacion"]?.ToString()</td>
+                        <td>
+                            @(universidades
+                                .FirstOrDefault(u => u["id"]?.ToString() == reg["universidad"]?.ToString())
+                                ?["nombre"]?.ToString() ?? reg["universidad"]?.ToString())
+                        </td>
+                        <td>@reg["interno"]?.ToString()</td>
+                        <td>@reg["ambito"]?.ToString()</td>
+                        <td>
+                            <button class="btn btn-warning btn-sm me-1"
+                                    @onclick="() => EditarRegistro(reg)">
+                                Editar
+                            </button>
+                            <button class="btn btn-danger btn-sm"
+                                    @onclick="() => EliminarRegistro(reg)">
+                                Eliminar
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+
+    @* ───────── MENSAJE CUANDO NO HAY DATOS ───────── *@
+    @if (!cargando && !registros.Any())
+    {
+        <div class="alert alert-warning">No se encontraron registros en la tabla grupo_investigacion.</div>
+    }
+</div>
+
+@code {
+    // ───────── VARIABLES DE ESTADO ─────────
+
+    // Lista de registros obtenidos de la API
+    private List<Dictionary<string, object?>> registros = new();
+
+    // Lista de universidades para el desplegable
+    private List<Dictionary<string, object?>> universidades = new();
+
+    // Controla si se muestra el spinner de carga principal
+    private bool cargando = true;
+
+    // Controla si se están cargando las universidades
+    private bool cargandoUniversidades = true;
+
+    // Controla si se muestra el formulario
+    private bool mostrarFormulario = false;
+
+    // Indica si estamos editando (true) o creando (false)
+    private bool editando = false;
+
+    // Mensaje de alerta para el usuario
+    private string mensaje = string.Empty;
+
+    // Indica si la ultima operacion fue exitosa (para color de alerta)
+    private bool exito = false;
+
+    // Campos del formulario
+    private string campoCodigo = string.Empty;
+    private string campoNombre = string.Empty;
+    private string campoUrl = string.Empty;
+    private string campoCategoria = string.Empty;
+    private string campoConvocatoria = string.Empty;
+    private DateTime? campoFechaFundacion;
+    private int campoUniversidad = 0;
+    private bool campoInterno = false;
+    private string campoAmbito = string.Empty;
+
+
+    // ───────── CICLO DE VIDA ─────────
+
+    // Se ejecuta al cargar la pagina por primera vez
+    // Carga registros y universidades en paralelo para mayor eficiencia
+    protected override async Task OnInitializedAsync()
+    {
+        await Task.WhenAll(CargarRegistros(), CargarUniversidades());
+    }
+
+    // ───────── METODOS ─────────
+
+    // Obtiene todos los registros de la tabla grupo_investigacion
+    private async Task CargarRegistros()
+    {
+        cargando = true;
+
+        try
+        {
+            registros = await Api.ListarAsync("grupo_investigacion");
+        }
+        catch (Exception ex)
+        {
+            mensaje = ex.Message;
+            exito = false;
+            registros = new();
+        }
+
+        cargando = false;
+    }
+
+    // Obtiene la lista de universidades para el desplegable
+    // Ajusta "universidad" al nombre exacto de tu tabla/endpoint
+    private async Task CargarUniversidades()
+    {
+        cargandoUniversidades = true;
+
+        try
+        {
+            universidades = await Api.ListarAsync("universidad");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error cargando universidades: {ex.Message}");
+            universidades = new();
+        }
+
+        cargandoUniversidades = false;
+    }
+
+    // Muestra el formulario vacio para crear un nuevo registro
+    private void NuevoRegistro()
+    {
+        editando = false;
+        campoCodigo = string.Empty;
+        campoNombre = string.Empty;
+        campoUrl = string.Empty;
+        campoCategoria = string.Empty;
+        campoConvocatoria = string.Empty;
+        campoFechaFundacion = null;
+        campoUniversidad = 0;
+        campoInterno = false;
+        campoAmbito = string.Empty;
+        mostrarFormulario = true;
+        mensaje = string.Empty;
+    }
+
+    // Llena el formulario con los datos del registro seleccionado
+    private void EditarRegistro(Dictionary<string, object?> reg)
+    {
+        editando = true;
+        campoCodigo = reg["id"]?.ToString() ?? "";
+        campoNombre = reg["nombre"]?.ToString() ?? "";
+        campoUrl = reg["url_gruplac"]?.ToString() ?? "";
+        campoCategoria = reg["categoria"]?.ToString() ?? "";
+        campoConvocatoria = reg["convocatoria"]?.ToString() ?? "";
+
+        if (DateTime.TryParse(reg["fecha_fundacion"]?.ToString(), out var fecha))
+        {
+            campoFechaFundacion = fecha;
+        }
+        else
+        {
+            campoFechaFundacion = DateTime.Now;
+        }
+
+        campoUniversidad = int.TryParse(reg["universidad"]?.ToString(), out var uni) ? uni : 0;
+        campoInterno = Convert.ToBoolean(reg["interno"]);
+        campoAmbito = reg["ambito"]?.ToString() ?? "";
+        mostrarFormulario = true;
+        mensaje = string.Empty;
+    }
+
+    // Crea o actualiza un registro segun el modo (editando o creando)
+    private async Task GuardarRegistro()
+    {
+        if (!Validar())
+        {
+            return;
+        }
+
+        var datos = new Dictionary<string, object?>
+        {
+            ["id"] = campoCodigo,
+            ["nombre"] = campoNombre,
+            ["url_gruplac"] = campoUrl,
+            ["categoria"] = campoCategoria,
+            ["convocatoria"] = campoConvocatoria,
+            ["fecha_fundacion"] = campoFechaFundacion?.ToString("yyyy-MM-dd"),
+            ["universidad"] = campoUniversidad,
+            ["interno"] = campoInterno,
+            ["ambito"] = campoAmbito
+        };
+
+        if (editando)
+        {
+            datos.Remove("id");
+            var resultado = await Api.ActualizarAsync("grupo_investigacion", "id", campoCodigo, datos);
+            exito = resultado.exito;
+            mensaje = resultado.mensaje;
+        }
+        else
+        {
+            var resultado = await Api.CrearAsync("grupo_investigacion", datos);
+            exito = resultado.exito;
+            mensaje = resultado.mensaje;
+        }
+
+        if (exito)
+        {
+            mostrarFormulario = false;
+            await CargarRegistros();
+        }
+    }
+
+    // Elimina un registro despues de confirmacion
+    private async Task EliminarRegistro(Dictionary<string, object?> reg)
+    {
+        string codigo = reg["id"]?.ToString() ?? "";
+        bool confirmar = await JS.InvokeAsync<bool>("confirm", $"¿Eliminar registro {codigo}?");
+
+        if (!confirmar)
+            return;
+
+        var resultado = await Api.EliminarAsync("grupo_investigacion", "id", codigo);
+        exito = resultado.exito;
+        mensaje = resultado.mensaje;
+
+        if (exito)
+        {
+            await CargarRegistros();
+        }
+    }
+
+    // Oculta el formulario sin guardar
+    private void Cancelar()
+    {
+        mostrarFormulario = false;
+        mensaje = string.Empty;
+    }
+
+    // Valida los campos obligatorios antes de guardar
+    private bool Validar()
+    {
+        if (string.IsNullOrWhiteSpace(campoCodigo))
+        {
+            mensaje = "El ID es obligatorio";
+            exito = false;
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(campoNombre))
+        {
+            mensaje = "El nombre es obligatorio";
+            exito = false;
+            return false;
+        }
+
+        if (campoUniversidad == 0)
+        {
+            mensaje = "Debe seleccionar una universidad";
+            exito = false;
+            return false;
+        }
+
+        return true;
+    }
+}

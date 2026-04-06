@@ -1,0 +1,177 @@
+@page "/semillerolinea"
+@rendermode InteractiveServer
+@inject FrontBlazor_AppiGenericaCsharp.Services.ApiService Api
+@inject IJSRuntime JS
+
+<PageTitle>Líneas por Semillero</PageTitle>
+
+<div class="container mt-4">
+    <h3>Líneas de Investigación por Semillero</h3>
+
+    @if (!string.IsNullOrEmpty(mensaje))
+    {
+        <div class="alert @(exito ? "alert-success" : "alert-danger") alert-dismissible fade show">
+            @mensaje
+            <button type="button" class="btn-close" @onclick="() => mensaje = string.Empty"></button>
+        </div>
+    }
+
+    @if (!mostrarFormulario)
+    {
+        <button class="btn btn-primary mb-3" @onclick="NuevoRegistro">Nueva Asociación</button>
+    }
+
+    @if (mostrarFormulario)
+    {
+        <div class="card mb-3">
+            <div class="card-header">Nueva Asociación Semillero - Línea</div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Semillero</label>
+                        @if (cargandoSemilleros)
+                        {
+                            <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                        }
+                        else
+                        {
+                            <select class="form-select" @bind="campoSemillero">
+                                <option value="0">-- Seleccione un semillero --</option>
+                                @foreach (var s in semilleros)
+                                {
+                                    <option value="@s["id"]?.ToString()">@s["nombre"]?.ToString()</option>
+                                }
+                            </select>
+                        }
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Línea de Investigación</label>
+                        @if (cargandoLineas)
+                        {
+                            <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                        }
+                        else
+                        {
+                            <select class="form-select" @bind="campoLinea">
+                                <option value="0">-- Seleccione una línea --</option>
+                                @foreach (var l in lineas)
+                                {
+                                    <option value="@l["id"]?.ToString()">@l["nombre"]?.ToString()</option>
+                                }
+                            </select>
+                        }
+                    </div>
+                </div>
+                <button class="btn btn-success me-2" @onclick="GuardarRegistro">Guardar</button>
+                <button class="btn btn-secondary" @onclick="Cancelar">Cancelar</button>
+            </div>
+        </div>
+    }
+
+    @if (cargando)
+    {
+        <div class="d-flex justify-content-center my-4">
+            <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando...</span></div>
+        </div>
+    }
+
+    @if (!cargando && registros.Any())
+    {
+        <table class="table table-striped table-hover">
+            <thead class="table-dark">
+                <tr><th>Semillero</th><th>Línea de Investigación</th><th>Acciones</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var reg in registros)
+                {
+                    <tr>
+                        <td>@(semilleros.FirstOrDefault(s => s["id"]?.ToString() == reg["semillero"]?.ToString())?["nombre"]?.ToString() ?? reg["semillero"]?.ToString())</td>
+                        <td>@(lineas.FirstOrDefault(l => l["id"]?.ToString() == reg["linea_investigacion"]?.ToString())?["nombre"]?.ToString() ?? reg["linea_investigacion"]?.ToString())</td>
+                        <td>
+                            <button class="btn btn-danger btn-sm" @onclick="() => EliminarRegistro(reg)">Eliminar</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+
+    @if (!cargando && !registros.Any())
+    {
+        <div class="alert alert-warning">No se encontraron registros.</div>
+    }
+</div>
+
+@code {
+    private List<Dictionary<string, object?>> registros = new();
+    private List<Dictionary<string, object?>> semilleros = new();
+    private List<Dictionary<string, object?>> lineas = new();
+    private bool cargando = true;
+    private bool cargandoSemilleros = true;
+    private bool cargandoLineas = true;
+    private bool mostrarFormulario = false;
+    private string mensaje = string.Empty;
+    private bool exito = false;
+    private int campoSemillero = 0;
+    private int campoLinea = 0;
+
+    protected override async Task OnInitializedAsync()
+        => await Task.WhenAll(CargarRegistros(), CargarSemilleros(), CargarLineas());
+
+    private async Task CargarRegistros()
+    {
+        cargando = true;
+        try { registros = await Api.ListarAsync("semillero_linea"); }
+        catch (Exception ex) { mensaje = ex.Message; exito = false; registros = new(); }
+        cargando = false;
+    }
+
+    private async Task CargarSemilleros()
+    {
+        cargandoSemilleros = true;
+        try { semilleros = await Api.ListarAsync("semillero"); }
+        catch { semilleros = new(); }
+        cargandoSemilleros = false;
+    }
+
+    private async Task CargarLineas()
+    {
+        cargandoLineas = true;
+        try { lineas = await Api.ListarAsync("linea_investigacion"); }
+        catch { lineas = new(); }
+        cargandoLineas = false;
+    }
+
+    private void NuevoRegistro()
+    {
+        campoSemillero = 0; campoLinea = 0;
+        mostrarFormulario = true; mensaje = string.Empty;
+    }
+
+    private async Task GuardarRegistro()
+    {
+        if (campoSemillero <= 0) { mensaje = "Debe seleccionar un semillero"; exito = false; return; }
+        if (campoLinea <= 0) { mensaje = "Debe seleccionar una línea de investigación"; exito = false; return; }
+
+        var datos = new Dictionary<string, object?>
+        {
+            ["semillero"] = campoSemillero,
+            ["linea_investigacion"] = campoLinea
+        };
+
+        var r = await Api.CrearAsync("semillero_linea", datos);
+        exito = r.exito; mensaje = r.mensaje;
+
+        if (exito) { mostrarFormulario = false; await CargarRegistros(); }
+    }
+
+    private async Task EliminarRegistro(Dictionary<string, object?> reg)
+    {
+        if (!await JS.InvokeAsync<bool>("confirm", "¿Eliminar esta asociación?")) return;
+        var r = await Api.EliminarAsync("semillero_linea", "semillero", reg["semillero"]?.ToString() ?? "");
+        exito = r.exito; mensaje = r.mensaje;
+        if (exito) await CargarRegistros();
+    }
+
+    private void Cancelar() { mostrarFormulario = false; mensaje = string.Empty; }
+}

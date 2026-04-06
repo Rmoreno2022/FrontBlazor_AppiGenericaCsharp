@@ -1,0 +1,186 @@
+@page "/aalinea"
+@rendermode InteractiveServer
+@inject FrontBlazor_AppiGenericaCsharp.Services.ApiService Api
+@inject IJSRuntime JS
+
+<PageTitle>Área de Aplicación por Línea</PageTitle>
+
+<div class="container mt-4">
+    <h3>Área de Aplicación por Línea de Investigación</h3>
+
+    @if (!string.IsNullOrEmpty(mensaje))
+    {
+        <div class="alert @(exito ? "alert-success" : "alert-danger") alert-dismissible fade show">
+            @mensaje
+            <button type="button" class="btn-close" @onclick="() => mensaje = string.Empty"></button>
+        </div>
+    }
+
+    @if (!mostrarFormulario)
+    {
+        <button class="btn btn-primary mb-3" @onclick="NuevoRegistro">Nueva Asociación</button>
+    }
+
+    @if (mostrarFormulario)
+    {
+        <div class="card mb-3">
+            <div class="card-header">@(editando ? "Editar Asociación" : "Nueva Asociación")</div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Línea de Investigación</label>
+                        @if (cargandoLineas)
+                        {
+                            <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                        }
+                        else
+                        {
+                            <select class="form-select" @bind="campoLinea" disabled="@editando">
+                                <option value="0">-- Seleccione una línea --</option>
+                                @foreach (var l in lineas)
+                                {
+                                    <option value="@l["id"]?.ToString()">@l["nombre"]?.ToString()</option>
+                                }
+                            </select>
+                        }
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Área de Aplicación</label>
+                        @if (cargandoAreas)
+                        {
+                            <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                        }
+                        else
+                        {
+                            <select class="form-select" @bind="campoAreaAplicacion" disabled="@editando">
+                                <option value="0">-- Seleccione un área --</option>
+                                @foreach (var a in areas)
+                                {
+                                    <option value="@a["id"]?.ToString()">@a["nombre"]?.ToString()</option>
+                                }
+                            </select>
+                        }
+                    </div>
+                </div>
+                <button class="btn btn-success me-2" @onclick="GuardarRegistro">Guardar</button>
+                <button class="btn btn-secondary" @onclick="Cancelar">Cancelar</button>
+            </div>
+        </div>
+    }
+
+    @if (cargando)
+    {
+        <div class="d-flex justify-content-center my-4">
+            <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando...</span></div>
+        </div>
+    }
+
+    @if (!cargando && registros.Any())
+    {
+        <table class="table table-striped table-hover">
+            <thead class="table-dark">
+                <tr><th>Línea de Investigación</th><th>Área de Aplicación</th><th>Acciones</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var reg in registros)
+                {
+                    <tr>
+                        <td>@(lineas.FirstOrDefault(l => l["id"]?.ToString() == reg["linea_investigacion"]?.ToString())?["nombre"]?.ToString() ?? reg["linea_investigacion"]?.ToString())</td>
+                        <td>@(areas.FirstOrDefault(a => a["id"]?.ToString() == reg["area_aplicacion"]?.ToString())?["nombre"]?.ToString() ?? reg["area_aplicacion"]?.ToString())</td>
+                        <td>
+                            <button class="btn btn-danger btn-sm" @onclick="() => EliminarRegistro(reg)">Eliminar</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+
+    @if (!cargando && !registros.Any())
+    {
+        <div class="alert alert-warning">No se encontraron registros.</div>
+    }
+</div>
+
+@code {
+    private List<Dictionary<string, object?>> registros = new();
+    private List<Dictionary<string, object?>> lineas = new();
+    private List<Dictionary<string, object?>> areas = new();
+    private bool cargando = true;
+    private bool cargandoLineas = true;
+    private bool cargandoAreas = true;
+    private bool mostrarFormulario = false;
+    private bool editando = false;
+    private string mensaje = string.Empty;
+    private bool exito = false;
+    private int campoLinea = 0;
+    private int campoAreaAplicacion = 0;
+
+    protected override async Task OnInitializedAsync()
+        => await Task.WhenAll(CargarRegistros(), CargarLineas(), CargarAreas());
+
+    private async Task CargarRegistros()
+    {
+        cargando = true;
+        try { registros = await Api.ListarAsync("aa_linea"); }
+        catch (Exception ex) { mensaje = ex.Message; exito = false; registros = new(); }
+        cargando = false;
+    }
+
+    private async Task CargarLineas()
+    {
+        cargandoLineas = true;
+        try { lineas = await Api.ListarAsync("linea_investigacion"); }
+        catch { lineas = new(); }
+        cargandoLineas = false;
+    }
+
+    private async Task CargarAreas()
+    {
+        cargandoAreas = true;
+        try { areas = await Api.ListarAsync("area_aplicacion"); }
+        catch { areas = new(); }
+        cargandoAreas = false;
+    }
+
+    private void NuevoRegistro()
+    {
+        editando = false; campoLinea = 0; campoAreaAplicacion = 0;
+        mostrarFormulario = true; mensaje = string.Empty;
+    }
+
+    private void EditarRegistro(Dictionary<string, object?> reg)
+    {
+        editando = true;
+        campoLinea = int.TryParse(reg["linea_investigacion"]?.ToString(), out var l) ? l : 0;
+        campoAreaAplicacion = int.TryParse(reg["area_aplicacion"]?.ToString(), out var a) ? a : 0;
+        mostrarFormulario = true; mensaje = string.Empty;
+    }
+
+    private async Task GuardarRegistro()
+    {
+        if (campoLinea <= 0) { mensaje = "Debe seleccionar una línea de investigación"; exito = false; return; }
+        if (campoAreaAplicacion <= 0) { mensaje = "Debe seleccionar un área de aplicación"; exito = false; return; }
+
+        var datos = new Dictionary<string, object?>
+        {
+            ["linea_investigacion"] = campoLinea,
+            ["area_aplicacion"] = campoAreaAplicacion
+        };
+
+        var r = await Api.CrearAsync("aa_linea", datos);
+        exito = r.exito; mensaje = r.mensaje;
+
+        if (exito) { mostrarFormulario = false; await CargarRegistros(); }
+    }
+
+    private async Task EliminarRegistro(Dictionary<string, object?> reg)
+    {
+        if (!await JS.InvokeAsync<bool>("confirm", "¿Eliminar esta asociación?")) return;
+        var r = await Api.EliminarAsync("aa_linea", "linea_investigacion", reg["linea_investigacion"]?.ToString() ?? "");
+        exito = r.exito; mensaje = r.mensaje;
+        if (exito) await CargarRegistros();
+    }
+
+    private void Cancelar() { mostrarFormulario = false; mensaje = string.Empty; }
+}
