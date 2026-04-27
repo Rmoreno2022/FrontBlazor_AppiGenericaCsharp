@@ -1,0 +1,31 @@
+@*
+    SinAcceso.razor - Página informativa de acceso restringido.
+
+    Se muestra cuando el usuario intenta ingresar a una ruta
+    que no tiene habilitada según su rol.
+
+    Para habilitar el acceso, el administrador puede asignar
+    los permisos correspondientes en las tablas ruta y rutarol.
+*@
+
+@page "/sin-acceso"
+@inject NavigationManager nav
+@rendermode InteractiveServer
+
+<div class="container d-flex justify-content-center align-items-center" style="min-height:70vh">
+    <div class="card shadow" style="width:450px">
+        <div class="card-header text-center bg-secondary text-white">
+            <h5 class="mb-0">Acceso restringido</h5>
+        </div>
+        <div class="card-body p-4 text-center">
+            <p class="fs-1 mb-2">🔒</p>
+            <p>Actualmente no tienes acceso a esta sección.</p>
+            <p class="text-muted small">
+                Si consideras que deberías visualizar esta información, puedes solicitar habilitación al administrador.
+            </p>
+            <button class="btn btn-outline-primary mt-2" @onclick='() => nav.NavigateTo("/")'>
+                Ir al inicio
+            </button>
+        </div>
+    </div>
+</div>
